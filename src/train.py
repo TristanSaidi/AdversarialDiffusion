@@ -2,10 +2,11 @@ import argparse
 
 import torch
 from torch import nn
-from trainers.diffusion_trainers import MNISTDiffusionTrainer
+from trainers.diffusion_trainers import MNISTDiffusionTrainer, FashionMNISTDiffusionTrainer
 
 trainer_map = {
     'mnist_diffusion': MNISTDiffusionTrainer,
+    'fashion_mnist_diffusion': FashionMNISTDiffusionTrainer,
 }
 
 def main():
@@ -30,7 +31,7 @@ def main():
     parser.add_argument(
         '--batch_size',
         type=int,
-        default=32,
+        default=128,
     )
     parser.add_argument(
         '--learning_rate',
