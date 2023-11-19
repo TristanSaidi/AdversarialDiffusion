@@ -1,1 +1,1 @@
-# AdversarialDiffusion
+# Adversarial Diffusion
