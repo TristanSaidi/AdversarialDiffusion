@@ -64,40 +64,4 @@ class Diffusion(nn.Module):
             t = torch.tensor([t]).to(self.device)
             x_t = self.sample_p_t(x_t, t)
         return x_t
-
-    
-class DiffusionTrainer:
-    def __init__(self, diffusion, optimizer, device='cuda'):
-        self.diffusion = diffusion
-        self.optimizer = optimizer
-        self.device = device
-
-    def train_epoch(self, batch):
-        self.optimizer.zero_grad()
-        # sample random t for every batch element
-        t = torch.randint(
-            0, 
-            self.diffusion.T, 
-            (batch.shape[0],)
-        ).to(self.device)
-        # sample eps ~ N(0, I)
-        eps = torch.randn_like(batch).to(self.device)
-        # sample x_t ~ q(x_t|x_0)
-        x_t = self.diffusion.sample_q_t(batch, t)
-        # predict noise
-        pred_eps = self.diffusion(x_t, t)
-        # compute loss
-        loss = torch.nn.functional.smooth_l1_loss(eps, pred_eps)
-        # optimize
-        loss.backward()
-        self.optimizer.step()
-        return loss.item()
-
-    def train(self, trainloader, epochs=10):
-        self.diffusion.train()
-        for _ in range(epochs):
-            for step, (x, _) in enumerate(trainloader):
-                loss = self.train_epoch(x.to(self.device))
-                if step % 100 == 0:
-                    print(f"Step {step} | Loss {loss}")
             
