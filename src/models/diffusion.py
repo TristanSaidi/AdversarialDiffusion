@@ -28,9 +28,10 @@ class Diffusion(nn.Module):
     def forward(self, x, t):
         return self.model(x, t.squeeze(-1))
 
-    def sample_q_t(self, x_0, t):
+    def sample_q_t(self, x_0, t, noise=None):
         " forward noising step "
-        noise = torch.randn_like(x_0).to(self.device)
+        if noise is None:
+            noise = torch.randn_like(x_0).to(self.device)
         # scalars for sampling
         sqrt_alpha_cumprod = extract(self.sqrt_alphas_cumprod, t, x_0.shape)
         sqrt_one_minus_alpha_cumprod = extract(self.sqrt_one_minus_alphas_cumprod, t, x_0.shape)

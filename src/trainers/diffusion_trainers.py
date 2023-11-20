@@ -23,7 +23,7 @@ class DiffusionTrainer(BaseTrainer):
             # sample eps ~ N(0, I)
             eps = torch.randn_like(x).to(self.device)
             # sample x_t ~ q(x_t|x_0)
-            x_t = self.diffusion.sample_q_t(x.to(self.device), t)
+            x_t = self.diffusion.sample_q_t(x.to(self.device), t, eps)
             # predict noise
             pred_eps = self.diffusion(x_t, t)
             # compute loss
