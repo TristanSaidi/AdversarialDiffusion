@@ -25,8 +25,8 @@ class Diffusion(nn.Module):
         # forward process
         self.posterior_variance = self.beta * (1 - self.alphas_cumprod_prev) / (1 - self.cumprod_alpha)
 
-    def forward(self, x, t):
-        return self.model(x, t.squeeze(-1))
+    def forward(self, x, t, y):
+        return self.model(x, t.squeeze(-1), y)
 
     def sample_q_t(self, x_0, t, noise=None):
         " forward noising step "
@@ -40,14 +40,14 @@ class Diffusion(nn.Module):
         return x_t
     
     @torch.no_grad()
-    def sample_p_t(self, x_t_prev, t):
+    def sample_p_t(self, x_t_prev, t, y):
         " backward denoising step "
         # scalars for sampling
         betas_t = extract(self.beta, t, x_t_prev.shape)
         sqrt_one_minus_alphas_cumprod_t = extract(self.sqrt_one_minus_alphas_cumprod, t, x_t_prev.shape)
         sqrt_recip_alphas_t = extract(self.sqrt_recip_alphas, t, x_t_prev.shape)
 
-        mean = sqrt_recip_alphas_t * (x_t_prev - betas_t * self.model(x_t_prev, t) / sqrt_one_minus_alphas_cumprod_t)
+        mean = sqrt_recip_alphas_t * (x_t_prev - betas_t * self.model(x_t_prev, t, y) / sqrt_one_minus_alphas_cumprod_t)
         posterior_variances_t = extract(self.posterior_variance, t, x_t_prev.shape)
         std = torch.sqrt(posterior_variances_t)
         
@@ -56,13 +56,13 @@ class Diffusion(nn.Module):
         return x_t
     
     @torch.no_grad()
-    def sample(self):
+    def sample(self, y):
         " sample from the model "
         x_0 = torch.randn(size=self.data_shape).to(self.device)
         x_0 = x_0[None, None, :, :] # (B, C, H, W)
         x_t = x_0
         for t in reversed(range(self.T)):
             t = torch.tensor([t]).to(self.device)
-            x_t = self.sample_p_t(x_t, t)
+            x_t = self.sample_p_t(x_t, t, y)
         return x_t
             
