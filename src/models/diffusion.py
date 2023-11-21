@@ -65,4 +65,56 @@ class Diffusion(nn.Module):
             t = torch.tensor([t]).to(self.device)
             x_t = self.sample_p_t(x_t, t)
         return x_t
+    
+    @torch.no_grad()
+    def estimate_likelihood(self, x_0):
+        x_1 = self.sample_q_t(x_0, torch.tensor([1]).to(self.device))
+        t_1 = torch.tensor([0]*x_0.shape[0]).to(self.device)
+        # from x_1, predict mu(x_0)
+        eps = self.model(x_1, torch.tensor([1]).to(self.device))
+        betas_t = extract(self.beta, t_1, x_0.shape)
+        sqrt_one_minus_alphas_cumprod_t = extract(self.sqrt_one_minus_alphas_cumprod, t_1, x_0.shape)
+        sqrt_recip_alphas_t = extract(self.sqrt_recip_alphas, t_1, x_0.shape)
+        mu = sqrt_recip_alphas_t * (x_1 - betas_t * eps / sqrt_one_minus_alphas_cumprod_t)
+        sigma_1 = torch.ones((x_0.shape[0])).to(self.device) * self.posterior_variance[1]
+        # reshape tensors
+        x_0 = x_0.view(x_0.shape[0], -1)
+        x_1 = x_1.view(x_1.shape[0], -1)
+        mu = mu.view(mu.shape[0], -1)
+        # iterate through each pixel
+        num_dims = x_1.shape[-1]
+
+        log_likelihood_tensor = torch.zeros((x_0.shape[0])).to(self.device)
+        for b in range(x_0.shape[0]):
+            log_likelihood = 0
+            for i in range(num_dims):
+                x_0_b_i = x_0[b, i]
+                delta_minus = -torch.inf if x_0_b_i == -1 else x_0_b_i - (1/255)
+                delta_plus = torch.inf if x_0_b_i == 1 else x_0_b_i + (1/255)
+                # convert to tensors
+                delta_minus = torch.tensor(delta_minus).to(self.device)
+                delta_plus = torch.tensor(delta_plus).to(self.device)
+                # compute dimension-wise likelihood
+                dist = torch.distributions.normal.Normal(mu[b, i], sigma_1[b])
+                cdf_plus = dist.cdf(delta_plus)
+                cdf_minus = dist.cdf(delta_minus)
+                likelihood = cdf_plus - cdf_minus
+                likelihood = max(likelihood, 1e-5)
+                log_likelihood += torch.log(torch.tensor(likelihood).to(self.device))
+            log_likelihood_tensor[b] = log_likelihood
+        prob = torch.mean(log_likelihood_tensor)
+        return prob
+    
+    @torch.no_grad()
+    def interpolate(self, x_0_a, x_0_b, n_interp=10):
+        latent_a = self.sample_q_t(x_0_a, torch.tensor([self.T//5]).to(self.device))
+        latent_b = self.sample_q_t(x_0_b, torch.tensor([self.T//5]).to(self.device))
+        # interpolate
+        images = []
+        for l in torch.linspace(0, 1, n_interp):
+            t = torch.tensor([self.T//5]).to(self.device)
+            x_t = l * latent_a + (1-l) * latent_b
+            x_t = self.sample_p_t(x_t, t)
+            images.append(x_t)
+        return images
             
