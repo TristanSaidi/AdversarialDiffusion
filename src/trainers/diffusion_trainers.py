@@ -4,12 +4,67 @@ from trainers.base_trainer import BaseTrainer
 from tqdm import tqdm
 import torchvision
 import torchvision.transforms as transforms
-
+import os
+import csv
 from models.diffusion import Diffusion
 from models.unet import Unet
 from models.condunet import condUnet
 
 class DiffusionTrainer(BaseTrainer):
+
+    def train_epoch(self, loader: torch.utils.data.DataLoader):
+        for x,_ in tqdm(loader):
+            self.optimizer.zero_grad()
+            # sample random t for every batch element
+            t = torch.randint(
+                0, 
+                self.diffusion.T, 
+                (x.shape[0],)
+            ).to(self.device)
+            # sample eps ~ N(0, I)
+            eps = torch.randn_like(x).to(self.device)
+            # sample x_t ~ q(x_t|x_0)
+            x_t = self.diffusion.sample_q_t(x.to(self.device), t, eps)
+            # predict noise
+            pred_eps = self.diffusion(x_t, t)
+            # compute loss
+            loss = torch.nn.functional.smooth_l1_loss(eps, pred_eps)
+            # optimize
+            loss.backward()
+            self.optimizer.step()
+            
+        return loss.mean()
+    
+    def train(self):
+        self.create_dataloaders()
+        # create network
+        self.model = unet(
+            dim=self.dim,
+            channels=self.channels,
+            dim_mults=(1,2,4,),
+        )
+
+        # create diffusion model
+        self.diffusion = Diffusion(
+            data_shape=self.data_shape,
+            T=self.T,
+            device=self.device,
+            model=self.model,
+        ).to(self.device)
+
+        # create optimizer
+        self.optimizer = torch.optim.Adam(
+            self.model.parameters(),
+            lr=self.learning_rate,
+        )
+
+        self.diffusion.train()
+        for epoch in range(self.epochs):
+            loss = self.train_epoch(self.train_loader)
+            self.save_model(f'{self.name}_epoch_{epoch}')
+            print(f'Epoch: {epoch} | Loss: {loss}')
+
+class CondDiffusionTrainer(BaseTrainer):
 
     def train_epoch(self, loader: torch.utils.data.DataLoader):
         losses = []
@@ -33,6 +88,11 @@ class DiffusionTrainer(BaseTrainer):
             loss.backward()
             self.optimizer.step()
             losses.append(loss.item())
+        # with open('losses.csv', 'a', newline='') as csvfile:
+        #     # Create a CSV writer object
+        #     csv_writer = csv.writer(csvfile)
+        #     csv_writer.writerow(losses)
+
         return loss.mean()
     
     def train(self):
@@ -65,8 +125,6 @@ class DiffusionTrainer(BaseTrainer):
             loss = self.train_epoch(self.train_loader)
             self.save_model(f'{self.name}_epoch_{epoch}')
             print(f'Epoch: {epoch} | Loss: {loss}')
-
-        
 
 class MNISTDiffusionTrainer(DiffusionTrainer):
     def __init__(self, **kwargs):
@@ -127,7 +185,7 @@ class FashionMNISTDiffusionTrainer(DiffusionTrainer):
         )
         
 
-class MNISTCondDiffusionTrainer(DiffusionTrainer):
+class MNISTCondDiffusionTrainer(CondDiffusionTrainer):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.dim = 28
