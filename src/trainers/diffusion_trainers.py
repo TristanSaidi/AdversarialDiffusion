@@ -6,7 +6,7 @@ import torchvision
 import torchvision.transforms as transforms
 import os
 import csv
-from models.diffusion import Diffusion
+from models.diffusion import Diffusion, CondDiffusion
 from models.unet import Unet
 from models.condunet import condUnet
 
@@ -38,7 +38,7 @@ class DiffusionTrainer(BaseTrainer):
     def train(self):
         self.create_dataloaders()
         # create network
-        self.model = unet(
+        self.model = Unet(
             dim=self.dim,
             channels=self.channels,
             dim_mults=(1,2,4,),
@@ -107,7 +107,7 @@ class CondDiffusionTrainer(BaseTrainer):
         )
 
         # create diffusion model
-        self.diffusion = Diffusion(
+        self.diffusion = CondDiffusion(
             data_shape=self.data_shape,
             T=self.T,
             device=self.device,
@@ -207,7 +207,7 @@ class MNISTCondDiffusionTrainer(CondDiffusionTrainer):
             download=True, 
             transform=self.transform
         )
-        self.label_set = torch.tensor(self.train_set.targets)
+        # self.label_set = torch.tensor(self.train_set.targets)
 
         self.train_loader = torch.utils.data.DataLoader(
             self.train_set, 
