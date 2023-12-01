@@ -2,11 +2,12 @@ import argparse
 
 import torch
 from torch import nn
-from trainers.diffusion_trainers import MNISTDiffusionTrainer, FashionMNISTDiffusionTrainer
+from trainers.diffusion_trainers import MNISTDiffusionTrainer, FashionMNISTDiffusionTrainer, MNISTCondDiffusionTrainer
 
 trainer_map = {
     'mnist_diffusion': MNISTDiffusionTrainer,
     'fashion_mnist_diffusion': FashionMNISTDiffusionTrainer,
+    'mnist_cond_diffusion': MNISTCondDiffusionTrainer,
 }
 
 def main():
