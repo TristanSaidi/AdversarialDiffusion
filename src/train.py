@@ -27,7 +27,7 @@ def main():
     parser.add_argument(
         '--device',
         type=str,
-        default='cuda',
+        default='mps',
     )
     parser.add_argument(
         '--batch_size',

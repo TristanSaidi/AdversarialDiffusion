@@ -224,9 +224,9 @@ class condUnet(nn.Module):
         channels=3,
         self_condition=False,
         num_classes=None,
-        class_embedder=None,
-        class_emb_dim=64,
-        in_res=64,
+        # class_embedder=None,
+        # class_emb_dim=64,
+        # in_res=64,
         resnet_block_groups=4,
     ):
         super().__init__()
@@ -236,7 +236,7 @@ class condUnet(nn.Module):
         self.self_condition = self_condition
         input_channels = channels * (2 if self_condition else 1)
         
-        self.class_embeddings = nn.Embedding(num_classes, class_emb_dim) if class_embedder is None else class_embedder
+        # self.class_embeddings = nn.Embedding(num_classes, class_emb_dim) if class_embedder is None else class_embedder
 
         init_dim = default(init_dim, dim)
         self.init_conv = nn.Conv2d(input_channels, init_dim, 1, padding=0) # changed to 1 and 0 from 7,3
@@ -248,6 +248,9 @@ class condUnet(nn.Module):
 
         # time embeddings
         time_dim = dim * 4
+        
+        if num_classes is not None:
+            self.label_embedding = nn.Embedding(num_classes, time_dim)
 
         self.time_mlp = nn.Sequential(
             SinusoidalPositionEmbeddings(dim),
@@ -260,7 +263,7 @@ class condUnet(nn.Module):
         self.downs = nn.ModuleList([])
         self.ups = nn.ModuleList([])
         num_resolutions = len(in_out)
-        now_res=in_res
+        # now_res=in_res
 
         for ind, (dim_in, dim_out) in enumerate(in_out):
             is_last = ind >= (num_resolutions - 1)
@@ -269,7 +272,7 @@ class condUnet(nn.Module):
                 nn.ModuleList(
                     [
                         #Adding module
-                        ClassConditioning(now_res),
+                        # ClassConditioning(now_res),
                         block_klass(dim_in, dim_in, time_emb_dim=time_dim),
                         block_klass(dim_in, dim_in, time_emb_dim=time_dim),
                         Residual(PreNorm(dim_in, LinearAttention(dim_in))),
@@ -281,7 +284,7 @@ class condUnet(nn.Module):
             )
 
         mid_dim = dims[-1]
-        self.mid_class_conditioning = ClassConditioning(now_res)
+        # self.mid_class_conditioning = ClassConditioning(now_res)
         self.mid_block1 = block_klass(mid_dim, mid_dim, time_emb_dim=time_dim)
         self.mid_attn = Residual(PreNorm(mid_dim, Attention(mid_dim)))
         self.mid_block2 = block_klass(mid_dim, mid_dim, time_emb_dim=time_dim)
@@ -292,7 +295,7 @@ class condUnet(nn.Module):
             self.ups.append(
                 nn.ModuleList(
                     [
-                        ClassConditioning(now_res),
+                        # ClassConditioning(now_res),
                         block_klass(dim_out + dim_in, dim_out, time_emb_dim=time_dim),
                         block_klass(dim_out + dim_in, dim_out, time_emb_dim=time_dim),
                         Residual(PreNorm(dim_out, LinearAttention(dim_out))),
@@ -308,7 +311,7 @@ class condUnet(nn.Module):
         self.final_res_block = block_klass(dim * 2, dim, time_emb_dim=time_dim)
         self.final_conv = nn.Conv2d(dim, self.out_dim, 1)
 
-    def forward(self, x, time, x_self_cond=None):
+    def forward(self, x, time, label, x_self_cond=None):
         if self.self_condition:
             x_self_cond = default(x_self_cond, lambda: torch.zeros_like(x))
             x = torch.cat((x_self_cond, x), dim=1)
@@ -318,14 +321,17 @@ class condUnet(nn.Module):
 
         t = self.time_mlp(time)
         
-        class_vector = self.class_embeddings(class_vector)
+        # class_vector = self.class_embeddings(class_vector)
+        
+        if label is not None:
+            t+=self.label_embedding(label)
 
 
         h = []
 
         for block1, block2, attn, downsample in self.downs:
-            cv= class_conditioning(class_vector)
-            x = torch.cat((x,cv),dim=1)
+            # cv= class_conditioning(class_vector)
+            # x = torch.cat((x,cv),dim=1)
             x = block1(x, t)
             h.append(x)
 
@@ -340,8 +346,8 @@ class condUnet(nn.Module):
         x = self.mid_block2(x, t)
 
         for block1, block2, attn, upsample in self.ups:
-            cv= class_conditioning(class_vector)
-            x = torch.cat((x,cv),dim=1)
+            # cv= class_conditioning(class_vector)
+            # x = torch.cat((x,cv),dim=1)
             x = torch.cat((x, h.pop()), dim=1)
             x = block1(x, t)
 
