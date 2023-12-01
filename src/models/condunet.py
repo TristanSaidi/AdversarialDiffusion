@@ -224,9 +224,6 @@ class condUnet(nn.Module):
         channels=3,
         self_condition=False,
         num_classes=None,
-        # class_embedder=None,
-        # class_emb_dim=64,
-        # in_res=64,
         resnet_block_groups=4,
     ):
         super().__init__()
@@ -236,8 +233,6 @@ class condUnet(nn.Module):
         self.self_condition = self_condition
         input_channels = channels * (2 if self_condition else 1)
         
-        # self.class_embeddings = nn.Embedding(num_classes, class_emb_dim) if class_embedder is None else class_embedder
-
         init_dim = default(init_dim, dim)
         self.init_conv = nn.Conv2d(input_channels, init_dim, 1, padding=0) # changed to 1 and 0 from 7,3
 
@@ -284,7 +279,6 @@ class condUnet(nn.Module):
             )
 
         mid_dim = dims[-1]
-        # self.mid_class_conditioning = ClassConditioning(now_res)
         self.mid_block1 = block_klass(mid_dim, mid_dim, time_emb_dim=time_dim)
         self.mid_attn = Residual(PreNorm(mid_dim, Attention(mid_dim)))
         self.mid_block2 = block_klass(mid_dim, mid_dim, time_emb_dim=time_dim)
@@ -320,9 +314,7 @@ class condUnet(nn.Module):
         r = x.clone()
 
         t = self.time_mlp(time)
-        
-        # class_vector = self.class_embeddings(class_vector)
-        
+                
         if label is not None:
             t+=self.label_embedding(label)
 
@@ -330,8 +322,6 @@ class condUnet(nn.Module):
         h = []
 
         for block1, block2, attn, downsample in self.downs:
-            # cv= class_conditioning(class_vector)
-            # x = torch.cat((x,cv),dim=1)
             x = block1(x, t)
             h.append(x)
 
