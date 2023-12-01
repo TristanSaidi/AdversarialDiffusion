@@ -88,10 +88,7 @@ class CondDiffusionTrainer(BaseTrainer):
             loss.backward()
             self.optimizer.step()
             losses.append(loss.item())
-        # with open('losses.csv', 'a', newline='') as csvfile:
-        #     # Create a CSV writer object
-        #     csv_writer = csv.writer(csvfile)
-        #     csv_writer.writerow(losses)
+
 
         return loss.mean()
     
@@ -136,7 +133,6 @@ class MNISTDiffusionTrainer(DiffusionTrainer):
 
     def create_dataloaders(self):
         self.transform = transforms.Compose([
-            transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             transforms.Lambda(lambda t: (t * 2) - 1)
         ])
@@ -165,7 +161,6 @@ class FashionMNISTDiffusionTrainer(DiffusionTrainer):
 
     def create_dataloaders(self):
         self.transform = transforms.Compose([
-            transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             transforms.Lambda(lambda t: (t * 2) - 1)
         ])
@@ -195,7 +190,6 @@ class MNISTCondDiffusionTrainer(CondDiffusionTrainer):
 
     def create_dataloaders(self):
         self.transform = transforms.Compose([
-            transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             transforms.Lambda(lambda t: (t * 2) - 1)
         ])
@@ -207,7 +201,6 @@ class MNISTCondDiffusionTrainer(CondDiffusionTrainer):
             download=True, 
             transform=self.transform
         )
-        # self.label_set = torch.tensor(self.train_set.targets)
 
         self.train_loader = torch.utils.data.DataLoader(
             self.train_set, 
