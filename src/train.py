@@ -2,11 +2,12 @@ import argparse
 
 import torch
 from torch import nn
-from trainers.diffusion_trainers import MNISTDiffusionTrainer, FashionMNISTDiffusionTrainer
+from trainers.diffusion_trainers import MNISTDiffusionTrainer, FashionMNISTDiffusionTrainer, MNISTCondDiffusionTrainer
 
 trainer_map = {
     'mnist_diffusion': MNISTDiffusionTrainer,
     'fashion_mnist_diffusion': FashionMNISTDiffusionTrainer,
+    'cond_mnist_diffusion': MNISTCondDiffusionTrainer
 }
 
 def main():
@@ -26,7 +27,7 @@ def main():
     parser.add_argument(
         '--device',
         type=str,
-        default='cuda',
+        default='mps',
     )
     parser.add_argument(
         '--batch_size',
