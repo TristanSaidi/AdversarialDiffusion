@@ -1,15 +1,20 @@
 import torch
 import torch.nn as nn
-from utils.diff_utils import extract, linear_beta_schedule
+from utils.diff_utils import extract, linear_beta_schedule, cosine_beta_schedule
+
+noise_schedule_map = {
+    'linear': linear_beta_schedule,
+    'cosine': cosine_beta_schedule,
+}
 
 class Diffusion(nn.Module):
-    def __init__(self, data_shape, model, T=300, device='cuda'):
+    def __init__(self, data_shape, model, noise_schedule, T=300, device='cuda'):
         super().__init__()
         self.device = device
         self.model = model.to(self.device)
         self.data_shape = data_shape
         self.T = T
-        self.beta = linear_beta_schedule(T).to(self.device)
+        self.beta = noise_schedule_map[noise_schedule](T).to(self.device)
         # constants for sampling
         self._init_scalars()
 
@@ -118,18 +123,15 @@ class Diffusion(nn.Module):
             images.append(x_t)
         return images
             
-import torch
-import torch.nn as nn
-from utils.diff_utils import extract, linear_beta_schedule
 
 class CondDiffusion(nn.Module):
-    def __init__(self, data_shape, model, T=300, device='cuda'):
+    def __init__(self, data_shape, model, noise_schedule, T=300, device='cuda'):
         super().__init__()
         self.device = device
         self.model = model.to(self.device)
         self.data_shape = data_shape
         self.T = T
-        self.beta = linear_beta_schedule(T).to(self.device)
+        self.beta = noise_schedule_map[noise_schedule](T).to(self.device)
         # constants for sampling
         self._init_scalars()
 

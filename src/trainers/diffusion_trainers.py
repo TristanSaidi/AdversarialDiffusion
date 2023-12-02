@@ -48,6 +48,7 @@ class DiffusionTrainer(BaseTrainer):
         self.diffusion = Diffusion(
             data_shape=self.data_shape,
             T=self.T,
+            noise_schedule=self.noise_schedule,
             device=self.device,
             model=self.model,
         ).to(self.device)
@@ -107,6 +108,7 @@ class CondDiffusionTrainer(BaseTrainer):
         self.diffusion = CondDiffusion(
             data_shape=self.data_shape,
             T=self.T,
+            noise_schedule=self.noise_schedule,
             device=self.device,
             model=self.model,
         ).to(self.device)
@@ -196,6 +198,34 @@ class MNISTCondDiffusionTrainer(CondDiffusionTrainer):
         self.reverse_transform = transforms.Compose([transforms.Lambda(lambda x: (x+1)/2), transforms.ToPILImage()])
 
         self.train_set = torchvision.datasets.MNIST(
+            root=self.data_dir, 
+            train=True,
+            download=True, 
+            transform=self.transform
+        )
+
+        self.train_loader = torch.utils.data.DataLoader(
+            self.train_set, 
+            batch_size=self.batch_size,
+            shuffle=True
+        )
+
+class FashionMNISTCondDiffusionTrainer(CondDiffusionTrainer):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.dim = 28
+        self.data_shape = (28, 28)
+        self.channels = 1
+        self.name = 'cond_fashion_mnist_diffusion'
+
+    def create_dataloaders(self):
+        self.transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Lambda(lambda t: (t * 2) - 1)
+        ])
+        self.reverse_transform = transforms.Compose([transforms.Lambda(lambda x: (x+1)/2), transforms.ToPILImage()])
+
+        self.train_set = torchvision.datasets.FashionMNIST(
             root=self.data_dir, 
             train=True,
             download=True, 
