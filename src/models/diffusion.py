@@ -188,6 +188,19 @@ class CondDiffusion(nn.Module):
             x_t = self.sample_p_t(x_t, t, y)
         return x_t
     
+    def explicit_sample(self, y):
+        " sample from the model and return latent noise"
+        y = torch.tensor([y]).to(self.device)
+        x_0 = torch.randn(size=self.data_shape).to(self.device)
+        x_0 = x_0[None, None, :, :] # (B, C, H, W)
+        x_t = x_0
+        latents = [x_0]
+        for t in reversed(range(self.T)):
+            t = torch.tensor([t]).to(self.device)
+            x_t = self.sample_p_t(x_t, t, y)
+            latents.append(x_t)
+        return latents
+
     @torch.no_grad()
     def estimate_likelihood(self, x_0, y):
         x_1 = self.sample_q_t(x_0, torch.tensor([1]).to(self.device))
