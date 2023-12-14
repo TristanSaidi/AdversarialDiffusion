@@ -1,15 +1,20 @@
 import torch
 import torch.nn as nn
-from utils.diff_utils import extract, linear_beta_schedule
+from utils.diff_utils import extract, linear_beta_schedule, cosine_beta_schedule
+
+noise_schedule_map = {
+    'linear': linear_beta_schedule,
+    'cosine': cosine_beta_schedule,
+}
 
 class Diffusion(nn.Module):
-    def __init__(self, data_shape, model, T=300, device='cuda'):
+    def __init__(self, data_shape, model, noise_schedule, T=300, device='cuda'):
         super().__init__()
         self.device = device
         self.model = model.to(self.device)
         self.data_shape = data_shape
         self.T = T
-        self.beta = linear_beta_schedule(T).to(self.device)
+        self.beta = noise_schedule_map[noise_schedule](T).to(self.device)
         # constants for sampling
         self._init_scalars()
 
@@ -117,19 +122,48 @@ class Diffusion(nn.Module):
             x_t = self.sample_p_t(x_t, t)
             images.append(x_t)
         return images
+    
+    def sample_p_t_grad(self, x_t_prev, t, deterministic=False):
+        " backward denoising step "
+        # scalars for sampling
+        betas_t = extract(self.beta, t, x_t_prev.shape)
+        sqrt_one_minus_alphas_cumprod_t = extract(self.sqrt_one_minus_alphas_cumprod, t, x_t_prev.shape)
+        sqrt_recip_alphas_t = extract(self.sqrt_recip_alphas, t, x_t_prev.shape)
+
+        mean = sqrt_recip_alphas_t * (x_t_prev - betas_t * self.model(x_t_prev, t) / sqrt_one_minus_alphas_cumprod_t)
+        posterior_variances_t = extract(self.posterior_variance, t, x_t_prev.shape)
+        std = torch.sqrt(posterior_variances_t)
+
+        if deterministic:
+            noise = torch.zeros_like(x_t_prev)
+        else:
+            noise = torch.randn_like(x_t_prev) if t > 0 else torch.zeros_like(x_t_prev)
+
+        x_t = mean + std * noise.to(self.device)
+        return x_t
+    
+    def explicit_sample(self, deterministic=False):
+        " sample from the model and return latent noise"
+        x_0 = torch.randn(size=self.data_shape).to(self.device)
+        x_0 = x_0[None, None, :, :] # (B, C, H, W)
+        x_t = x_0
+        latents = [x_0]
+        for t in reversed(range(self.T)):
+            t = torch.tensor([t]).to(self.device)
+            x_t = self.sample_p_t_grad(x_t, t, deterministic)
+            latents.append(x_t)
+        return latents
+
             
-import torch
-import torch.nn as nn
-from utils.diff_utils import extract, linear_beta_schedule
 
 class CondDiffusion(nn.Module):
-    def __init__(self, data_shape, model, T=300, device='cuda'):
+    def __init__(self, data_shape, model, noise_schedule, T=300, device='cuda'):
         super().__init__()
         self.device = device
         self.model = model.to(self.device)
         self.data_shape = data_shape
         self.T = T
-        self.beta = linear_beta_schedule(T).to(self.device)
+        self.beta = noise_schedule_map[noise_schedule](T).to(self.device)
         # constants for sampling
         self._init_scalars()
 
@@ -185,7 +219,40 @@ class CondDiffusion(nn.Module):
             t = torch.tensor([t]).to(self.device)
             x_t = self.sample_p_t(x_t, t, y)
         return x_t
-    
+
+    # sample with gradient
+    def sample_p_t_grad(self, x_t_prev, t, y, deterministic=False):
+        " backward denoising step "
+        # scalars for sampling
+        betas_t = extract(self.beta, t, x_t_prev.shape)
+        sqrt_one_minus_alphas_cumprod_t = extract(self.sqrt_one_minus_alphas_cumprod, t, x_t_prev.shape)
+        sqrt_recip_alphas_t = extract(self.sqrt_recip_alphas, t, x_t_prev.shape)
+
+        mean = sqrt_recip_alphas_t * (x_t_prev - betas_t * self.model(x_t_prev, t, y) / sqrt_one_minus_alphas_cumprod_t)
+        posterior_variances_t = extract(self.posterior_variance, t, x_t_prev.shape)
+        std = torch.sqrt(posterior_variances_t)
+
+        if deterministic:
+            noise = torch.zeros_like(x_t_prev)
+        else:
+            noise = torch.randn_like(x_t_prev) if t > 0 else torch.zeros_like(x_t_prev)
+
+        x_t = mean + std * noise.to(self.device)
+        return x_t
+
+    def explicit_sample(self, y, deterministic=False):
+        " sample from the model and return latent noise"
+        y = torch.tensor([y]).to(self.device)
+        x_0 = torch.randn(size=self.data_shape).to(self.device)
+        x_0 = x_0[None, None, :, :] # (B, C, H, W)
+        x_t = x_0
+        latents = [x_0]
+        for t in reversed(range(self.T)):
+            t = torch.tensor([t]).to(self.device)
+            x_t = self.sample_p_t_grad(x_t, t, y, deterministic)
+            latents.append(x_t)
+        return latents
+
     @torch.no_grad()
     def estimate_likelihood(self, x_0, y):
         x_1 = self.sample_q_t(x_0, torch.tensor([1]).to(self.device))

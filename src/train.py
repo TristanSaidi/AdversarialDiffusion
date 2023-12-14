@@ -2,12 +2,13 @@ import argparse
 
 import torch
 from torch import nn
-from trainers.diffusion_trainers import MNISTDiffusionTrainer, FashionMNISTDiffusionTrainer, MNISTCondDiffusionTrainer
+from trainers.diffusion_trainers import MNISTDiffusionTrainer, FashionMNISTDiffusionTrainer, MNISTCondDiffusionTrainer, FashionMNISTCondDiffusionTrainer
 
 trainer_map = {
     'mnist_diffusion': MNISTDiffusionTrainer,
     'fashion_mnist_diffusion': FashionMNISTDiffusionTrainer,
     'mnist_cond_diffusion': MNISTCondDiffusionTrainer,
+    'fashion_mnist_cond_diffusion': FashionMNISTCondDiffusionTrainer,
 }
 
 def main():
@@ -48,6 +49,11 @@ def main():
         '--data_dir',
         type=str,
         default='../data/',
+    )
+    parser.add_argument(
+        '--noise_schedule',
+        type=str,
+        default='linear',
     )
     parser.add_argument(
         '--trainer_type',
